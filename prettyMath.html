@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" >
+    <head>
+        <title>Pretty Math Demo</title>
+		<link rel="stylesheet" type="text/css" href="mathquill.css" />
+		
+    </head>
+    <body>
+		<span class="mathquill-editable" id="mqContent" >f(x)=?</span><br />
+		Mathquill: <input id="mqInput" type="text" style="width:200px" /><br />
+		Symja: <input id="sjaInput" type="text" style="width:200px" />
+		<script src="jquery.min.js" type="text/javascript" ></script>
+		<script src="mathquill.js" type="text/javascript" ></script>
+		<script type="text/javascript" >
+			$(document).ready(function(){
+				var mq = $("#mqContent");
+				var mqC = $("#mqClone");
+				var mqI = $("#mqInput");
+				var sjaI = $("#sjaInput");
+				mq.mathquill('revert');
+				mq.mathquill('editable');
+				
+				mq.bind('keyup', function(e){
+					//alert(e.keyCode);
+					var latex;
+					var LOG = 1;
+					var CHAR = 0;
+					var TRIG = 1;
+					var SQRT = 1;
+					var oldVal = mqI.val();
+					var edVal = mq.mathquill('latex');
+					var tempStr = edVal;
+					// sqrt rule
+					// change sqrt\: to \sqrt{}
+					// does not handle cases such as space is already there prior to entering sqrt
+					var newStr = tempStr.replace(/sqrt\\:/gi,"\\sqrt{}");
+					if (tempStr != newStr) {
+						tempStr = newStr;
+						latex = SQRT;
+					} else {
+						newStr = tempStr.replace(/sin\\:/gi,"\\sin\\left(\\right)");
+						newStr = newStr.replace(/([^\\])sin\\left\(\\right\)|^sin\\left\(\\right\)/gi,"$1\\sin\\left(\\right)");
+						newStr = newStr.replace(/cos\\:/gi,"\\cos\\left(\\right)");
+						newStr = newStr.replace(/([^\\])cos\\left\(\\right\)|^cos\\left\(\\right\)/gi,"$1\\cos\\left(\\right)");
+						newStr = newStr.replace(/tan\\:/gi,"\\tan\\left(\\right)");
+						newStr = newStr.replace(/([^\\])tan\\left\(\\right\)|^tan\\left\(\\right\)/gi,"$1\\tan\\left(\\right)");
+						if (tempStr!= newStr) {
+							tempStr = newStr;
+							latex = TRIG;
+						} else {
+							newStr = tempStr.replace(/pi\\:/gi,"\\pi");
+							newStr = newStr.replace(/E\\:/g,"\\text{E}");
+							newStr = newStr.replace(/e\\:/g,"\\text{e}");
+							if (tempStr != newStr) {
+								tempStr = newStr;
+								latex = CHAR;
+							} else {
+								newStr = tempStr.replace(/log\\:/gi,"\\log\\left(\\right)");
+								newStr = newStr.replace(/([^\\])log\\left\(\\right\)|^log\\left\(\\right\)/gi,"$1\\log\\left(\\right)");
+								newStr = newStr.replace(/ln\\:/gi,"\\ln\\left(\\right)");
+								newStr = newStr.replace(/([^\\])ln\\left\(\\right\)|^ln\\left\(\\right\)/gi,"$1\\ln\\left(\\right)");
+								if (tempStr != newStr) {
+									tempStr = newStr;
+									latex = LOG;
+								} else {
+								}
+								
+							}
+						}
+						
+					}
+					if (edVal != tempStr) {
+						edVal = tempStr;
+						// this causes to lose cursor
+						var root = mq.data('[[mathquill internal data]]')['block'];
+						//root.init('\\');
+						// count cursor steps until end
+						var next = root.cursor.next;
+						var steps = latex;
+						root.cursor.moveRight();
+						var parent = root.cursor.parent;
+						while (next != root.cursor.next || !mq.hasClass("hasCursor")) {
+							steps++;
+							next = root.cursor.next;
+							root.cursor.moveRight();
+						}						
+												
+						var prev = root.cursor.prev;
+						$(prev).data("cursorPrev", true);
+						mq.mathquill('latex',edVal).focus();
+						var root = mq.data('[[mathquill internal data]]')['block'];
+						
+						// move cursor back to right location
+						while(steps > 0) {
+							root.cursor.moveLeft();
+							steps--;
+						}
+						$(prev).data("cursorPrev", false);
+						
+					}
+					var newVal = edVal;
+					mqI.val(newVal);
+					if (oldVal != newVal) {
+						mqI.change();
+					}
+					
+				});
+				
+				
+				mqI.change(function(){
+					var mqVal = mqI.val();
+					var edVal = mqVal;
+					var tempStr = edVal;
+					// change \: to spaces
+					var newStr = tempStr.replace(/\\:/g," ");
+					tempStr = newStr;
+					// change \cdot to *
+					newStr = tempStr.replace(/\\cdot/g,"*");
+					tempStr = newStr;
+					// change \pi to Pi
+					newStr = tempStr.replace(/\\pi/g,"Pi");
+					tempStr = newStr;
+					// text
+					newStr = tempStr.replace(/\\text{([a-zA-Z0-9]*)}/g,"$1");
+					tempStr = newStr;
+					
+					
+
+					
+					// TODO: NO RECURSION DONE!!! NEED TO CORRECT ASAP
+					
+					// change frac to division
+					newStr = tempStr.replace(/\\frac{(.*)}{(.*)}/g,"$1/$2");
+					tempStr = newStr;
+					// change {} to () for exponents
+					newStr = tempStr.replace(/\^{([^}]+)}/g,"^($1)");
+					tempStr = newStr;
+					// change \left(\right) to ()
+					newStr = tempStr.replace(/\\left\(([^\\right.]*)\\right\)/g,"($1)");
+					tempStr = newStr;
+					
+					
+					// change trig  and log functions
+					// log and ln are assumed symja syntax
+					newStr = tempStr.replace(/\\([a-z]*)\(([^\\.]*)\)/gi, function(m,p1, p2) { 
+						if (p1.length == 1) {
+							return p1[0].toUpperCase() +"["+p2+"]";
+						} else if (p1.length >1 ) {
+							return p1[0].toUpperCase() + p1.substr(1) +"["+p2+"]";
+						}
+					});
+					tempStr = newStr;
+					
+					//sqrt
+					newStr = tempStr.replace(/\\sqrt{([^}]+)}|\\sqrt{}/gi,"Sqrt[$1]");
+					tempStr = newStr;
+					
+					
+					var sjaVal = tempStr;
+					sjaI.val(sjaVal);
+				});
+			});
+		</script>
+	</body>
+</html>
